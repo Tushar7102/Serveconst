@@ -29,32 +29,25 @@ const AuthModal = ({ isOpen, onClose, onLogin }) => {
     setLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const userData = {
+        ...formData,
+        isLogin: isLoginMode
+      };
       
-      if (isLoginMode) {
-        // Login logic
-        const userData = {
-          id: 1,
-          name: formData.name || 'Priya Sharma',
-          email: formData.email,
-          phone: formData.phone || '+91 9876543210'
-        };
-        onLogin && onLogin(userData);
-      } else {
-        // Signup logic
-        const userData = {
-          id: 1,
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone
-        };
-        onLogin && onLogin(userData);
-      }
-      
+      await onLogin(userData);
       onClose();
+      
+      // Reset form
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        password: '',
+        confirmPassword: ''
+      });
     } catch (error) {
       console.error('Auth error:', error);
+      // Error is handled in the parent component
     } finally {
       setLoading(false);
     }
