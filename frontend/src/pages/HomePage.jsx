@@ -16,7 +16,7 @@ const HomePage = ({ onProductClick, onCategoryClick, onAddToCart, onWishlist }) 
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
           {showTimer ? (
-            <Fire className="h-6 w-6 text-red-500" />
+            <Flame className="h-6 w-6 text-red-500" />
           ) : (
             <TrendingUp className="h-6 w-6 text-pink-500" />
           )}
