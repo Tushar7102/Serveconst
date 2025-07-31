@@ -5,7 +5,7 @@ import ProductCard from '../components/ProductCard';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Clock, TrendingUp, Fire, Gift } from 'lucide-react';
+import { Clock, TrendingUp, Flame, Gift } from 'lucide-react';
 import { banners, categories, featuredProducts, deals } from '../data/mockData';
 
 const HomePage = ({ onProductClick, onCategoryClick, onAddToCart, onWishlist }) => {
