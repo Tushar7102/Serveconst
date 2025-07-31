@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
+from datetime import datetime
 from models.product import Product, ProductCreate, ProductResponse, ProductUpdate, Category
 from models.user import User
 from routes.auth import get_current_user
