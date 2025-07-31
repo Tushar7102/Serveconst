@@ -53,16 +53,21 @@ const AuthModal = ({ isOpen, onClose, onLogin }) => {
     }
   };
 
-  const handleSocialLogin = (provider) => {
-    // Simulate social login
-    const userData = {
-      id: 1,
-      name: 'Priya Sharma',
-      email: 'priya@example.com',
-      phone: '+91 9876543210'
-    };
-    onLogin && onLogin(userData);
-    onClose();
+  const handleSocialLogin = async (provider) => {
+    try {
+      // For demo purposes, create a mock user
+      const userData = {
+        name: 'Demo User',
+        email: 'demo@meesho.com',
+        phone: '+91 9876543210',
+        password: 'demo123',
+        isLogin: false // Register as new user
+      };
+      await onLogin(userData);
+      onClose();
+    } catch (error) {
+      console.error('Social login error:', error);
+    }
   };
 
   if (!isOpen) return null;
