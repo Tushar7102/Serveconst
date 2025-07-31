@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Banner from '../components/Banner';
 import CategoryGrid from '../components/CategoryGrid';
 import ProductCard from '../components/ProductCard';
@@ -6,10 +6,53 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Clock, TrendingUp, Flame, Gift } from 'lucide-react';
-import { banners, categories, featuredProducts, deals } from '../data/mockData';
+import { banners } from '../data/mockData'; // Keep banners as mock for now
+import { productsAPI } from '../services/api';
 
 const HomePage = ({ onProductClick, onCategoryClick, onAddToCart, onWishlist }) => {
   const [currentDealTime, setCurrentDealTime] = useState("23:45:12");
+  const [categories, setCategories] = useState([]);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [trendingProducts, setTrendingProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // Load categories
+        const categoriesResponse = await productsAPI.getCategories();
+        if (categoriesResponse.success) {
+          setCategories(categoriesResponse.data);
+        }
+
+        // Load featured products (first 6 products)
+        const featuredResponse = await productsAPI.getProducts({ 
+          limit: 6, 
+          sortBy: 'rating', 
+          sortOrder: 'desc' 
+        });
+        if (featuredResponse.success) {
+          setFeaturedProducts(featuredResponse.data.products);
+        }
+
+        // Load trending products (different set)
+        const trendingResponse = await productsAPI.getProducts({ 
+          limit: 4, 
+          sortBy: 'createdAt', 
+          sortOrder: 'desc' 
+        });
+        if (trendingResponse.success) {
+          setTrendingProducts(trendingResponse.data.products);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const DealSection = ({ deal, showTimer = false }) => (
     <Card className="bg-white p-6 mb-8">
@@ -44,6 +87,31 @@ const HomePage = ({ onProductClick, onCategoryClick, onAddToCart, onWishlist }) 
       </div>
     </Card>
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <div className="bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-lg px-6 py-3 font-bold text-2xl mb-4 inline-block">
+              M
+            </div>
+            <p className="text-gray-600">Loading amazing deals...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const dealOfTheDay = {
+    title: "Deal of the Day",
+    products: trendingProducts
+  };
+
+  const trendingSection = {
+    title: "Trending Products", 
+    products: featuredProducts.slice(0, 4)
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -81,30 +149,36 @@ const HomePage = ({ onProductClick, onCategoryClick, onAddToCart, onWishlist }) 
         </div>
 
         {/* Deal of the Day */}
-        <DealSection deal={deals[0]} showTimer={true} />
+        {dealOfTheDay.products.length > 0 && (
+          <DealSection deal={dealOfTheDay} showTimer={true} />
+        )}
 
         {/* Trending Products */}
-        <DealSection deal={deals[1]} />
+        {trendingSection.products.length > 0 && (
+          <DealSection deal={trendingSection} />
+        )}
         
         {/* Featured Products */}
-        <Card className="bg-white p-6 mb-8">
-          <div className="flex items-center space-x-3 mb-6">
-            <TrendingUp className="h-6 w-6 text-green-500" />
-            <h2 className="text-2xl font-bold text-gray-800">Featured Products</h2>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-            {featuredProducts.map(product => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onProductClick={onProductClick}
-                onAddToCart={onAddToCart}
-                onWishlist={onWishlist}
-              />
-            ))}
-          </div>
-        </Card>
+        {featuredProducts.length > 0 && (
+          <Card className="bg-white p-6 mb-8">
+            <div className="flex items-center space-x-3 mb-6">
+              <TrendingUp className="h-6 w-6 text-green-500" />
+              <h2 className="text-2xl font-bold text-gray-800">Featured Products</h2>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+              {featuredProducts.map(product => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onProductClick={onProductClick}
+                  onAddToCart={onAddToCart}
+                  onWishlist={onWishlist}
+                />
+              ))}
+            </div>
+          </Card>
+        )}
 
         {/* Reseller section */}
         <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-8 mb-8">
