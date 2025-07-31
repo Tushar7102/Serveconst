@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import axios from "axios";
 
 // Components
 import Header from "./components/Header";
@@ -12,8 +11,8 @@ import AuthModal from "./components/AuthModal";
 import { Toaster } from "./components/ui/toaster";
 import { useToast } from "./hooks/use-toast";
 
-// Data
-import { mockUser, mockCart } from "./data/mockData";
+// API Services
+import { authAPI, productsAPI, cartAPI } from "./services/api";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -25,41 +24,106 @@ function AppContent() {
   const [currentProduct, setCurrentProduct] = useState(null);
   const [currentCategory, setCurrentCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
   
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
 
-  const helloWorldApi = async () => {
+  // Initialize app - check for stored user and load cart
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        // Check for stored auth
+        const storedToken = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        
+        if (storedToken && storedUser) {
+          setUser(JSON.parse(storedUser));
+          await loadCart();
+        }
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  const loadCart = async () => {
     try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
+      const response = await cartAPI.getCart();
+      if (response.success) {
+        setCartItems(response.data.items || []);
+      }
+    } catch (error) {
+      console.error('Error loading cart:', error);
     }
   };
 
-  useEffect(() => {
-    helloWorldApi();
-    // Load mock data
-    setCartItems(mockCart);
-  }, []);
+  const handleLogin = async (userData) => {
+    try {
+      let response;
+      
+      if (userData.isLogin) {
+        // Login existing user
+        response = await authAPI.login({
+          email: userData.email,
+          password: userData.password
+        });
+      } else {
+        // Register new user
+        response = await authAPI.register({
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone,
+          password: userData.password
+        });
+      }
 
-  const handleLogin = (userData) => {
-    setUser(userData);
-    toast({
-      title: "Welcome to Meesho!",
-      description: `Hi ${userData.name}, you're successfully logged in.`
-    });
+      if (response.success) {
+        // Store auth data
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('user', JSON.stringify(response.user));
+        
+        setUser(response.user);
+        await loadCart();
+        
+        toast({
+          title: "Welcome to Meesho!",
+          description: `Hi ${response.user.name}, you're successfully logged in.`
+        });
+      }
+    } catch (error) {
+      console.error('Login/Register error:', error);
+      toast({
+        title: "Authentication Error",
+        description: error.response?.data?.message || "Something went wrong. Please try again.",
+        variant: "destructive"
+      });
+      throw error;
+    }
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    setCartItems([]);
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out."
-    });
+  const handleLogout = async () => {
+    try {
+      await authAPI.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setCartItems([]);
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out."
+      });
+    }
   };
 
   const handleAuthClick = () => {
@@ -88,29 +152,42 @@ function AppContent() {
     navigate('/product');
   };
 
-  const handleAddToCart = (product) => {
-    const existingItem = cartItems.find(item => 
-      item.id === product.id && 
-      item.selectedSize === product.selectedSize && 
-      item.selectedColor === product.selectedColor
-    );
+  const handleAddToCart = async (product) => {
+    try {
+      if (!user) {
+        toast({
+          title: "Login Required",
+          description: "Please login to add items to cart.",
+          variant: "destructive"
+        });
+        setIsAuthModalOpen(true);
+        return;
+      }
 
-    if (existingItem) {
-      setCartItems(cartItems.map(item =>
-        item.id === product.id && 
-        item.selectedSize === product.selectedSize && 
-        item.selectedColor === product.selectedColor
-          ? { ...item, quantity: item.quantity + (product.quantity || 1) }
-          : item
-      ));
-    } else {
-      setCartItems([...cartItems, { ...product, quantity: product.quantity || 1 }]);
+      const cartItem = {
+        productId: product.id || product._id,
+        quantity: product.quantity || 1,
+        selectedSize: product.selectedSize,
+        selectedColor: product.selectedColor
+      };
+
+      const response = await cartAPI.addToCart(cartItem);
+      
+      if (response.success) {
+        setCartItems(response.data.items || []);
+        toast({
+          title: "Added to Cart",
+          description: `${product.name} has been added to your cart.`
+        });
+      }
+    } catch (error) {
+      console.error('Add to cart error:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to add item to cart.",
+        variant: "destructive"
+      });
     }
-
-    toast({
-      title: "Added to Cart",
-      description: `${product.name} has been added to your cart.`
-    });
   };
 
   const handleWishlist = (product) => {
@@ -120,8 +197,8 @@ function AppContent() {
     });
   };
 
-  const handleBuyNow = (product) => {
-    handleAddToCart(product);
+  const handleBuyNow = async (product) => {
+    await handleAddToCart(product);
     toast({
       title: "Redirecting to Checkout",
       description: "Taking you to the checkout page..."
@@ -137,18 +214,18 @@ function AppContent() {
     }
   };
 
-  const getCurrentPageTitle = () => {
-    switch (location.pathname) {
-      case '/':
-        return 'Home';
-      case '/products':
-        return currentCategory ? currentCategory.name : searchQuery ? `Search: ${searchQuery}` : 'Products';
-      case '/product':
-        return currentProduct ? currentProduct.name : 'Product';
-      default:
-        return 'Meesho';
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-lg px-6 py-3 font-bold text-2xl mb-4">
+            M
+          </div>
+          <p className="text-gray-600">Loading Meesho...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="App min-h-screen bg-gray-50">
